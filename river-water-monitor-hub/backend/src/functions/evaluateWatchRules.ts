@@ -5,7 +5,7 @@
 // （評価=純粋ロジック / 送信=sendLineNotification ユースケースを合成）
 // ============================================================
 
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "@base44/sdk";
 import {
   makeBase44Repositories,
   type Base44Client,
@@ -17,6 +17,9 @@ import { consoleLogger, systemClock } from "../runtime.ts";
 Deno.serve(async (req) => {
   try {
     const b44 = createClientFromRequest(req) as unknown as Base44Client;
+    const actor = await b44.auth.me().catch(() => null);
+    if (!actor?.id) return Response.json({ ok: false }, { status: 401 });
+    if (actor.role !== "admin") return Response.json({ ok: false }, { status: 403 });
     const repos = makeBase44Repositories(b44);
     const line = LineMessagingClient.fromEnv();
 
