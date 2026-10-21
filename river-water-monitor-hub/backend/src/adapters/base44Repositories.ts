@@ -46,6 +46,7 @@ interface Entities {
 }
 
 export interface Base44Client {
+  auth: { me(): Promise<{ id: string; role?: string }> };
   asServiceRole: { entities: Entities };
   entities: Entities;
 }

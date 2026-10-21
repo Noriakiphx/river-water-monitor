@@ -6,7 +6,7 @@
 // ネットワークには接続しない。
 // ============================================================
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { MLIT_SOURCE, parseMlitResponse } from "./parseMlitResponse.ts";
 import { MlitWaterLevelProvider } from "./MlitWaterLevelProvider.ts";
 import type { Station } from "../../types.ts";

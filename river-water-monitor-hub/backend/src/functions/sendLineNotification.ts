@@ -10,7 +10,7 @@
 //   })
 // ============================================================
 
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "@base44/sdk";
 import {
   makeBase44Repositories,
   type Base44Client,
@@ -30,17 +30,21 @@ interface Payload {
 
 Deno.serve(async (req) => {
   try {
+    if (req.method !== "POST") return Response.json({ ok: false }, { status: 405 });
+    const b44 = createClientFromRequest(req) as unknown as Base44Client;
+    const actor = await b44.auth.me().catch(() => null);
+    if (!actor?.id) return Response.json({ ok: false }, { status: 401 });
     const body = (await req.json()) as Partial<Payload>;
-    const { userId, stationId, watchRuleId, waterLevel } = body;
+    const { userId, stationId, watchRuleId } = body;
 
-    if (!userId || !stationId || !watchRuleId || typeof waterLevel !== "number") {
+    if (typeof userId !== "string" || typeof stationId !== "string" || typeof watchRuleId !== "string") {
       return Response.json(
         { ok: false, error: "userId, stationId, watchRuleId, waterLevel は必須です" },
         { status: 400 },
       );
     }
 
-    const b44 = createClientFromRequest(req) as unknown as Base44Client;
+    if (userId !== actor.id) return Response.json({ ok: false }, { status: 403 });
     const repos = makeBase44Repositories(b44);
 
     const [rule, station] = await Promise.all([
@@ -48,7 +52,15 @@ Deno.serve(async (req) => {
       repos.stations.getById(stationId),
     ]);
     if (!rule) return Response.json({ ok: false, error: "WatchRule が見つかりません" }, { status: 404 });
+    if (rule.userId !== actor.id || rule.stationId !== stationId) {
+      return Response.json({ ok: false, error: "WatchRule が見つかりません" }, { status: 404 });
+    }
     if (!station) return Response.json({ ok: false, error: "Station が見つかりません" }, { status: 404 });
+
+    const reading = (await repos.levels.latestByStation([stationId])).get(stationId);
+    if (!reading || !Number.isFinite(reading.waterLevel)) {
+      return Response.json({ ok: false, error: "観測値がありません" }, { status: 409 });
+    }
 
     const threshold = resolveThreshold(rule, station);
     if (threshold === null) {
@@ -58,10 +70,10 @@ Deno.serve(async (req) => {
     const target: NotificationTarget = {
       rule,
       station,
-      waterLevel,
+      waterLevel: reading.waterLevel,
       threshold,
       thresholdType: rule.thresholdType,
-      observedAt: systemClock.now().toISOString(),
+      observedAt: reading.observedAt,
     };
 
     const line = LineMessagingClient.fromEnv();

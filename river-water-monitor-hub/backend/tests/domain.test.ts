@@ -4,7 +4,7 @@
 // I/O が無いので外部依存なしで完結する。
 // ============================================================
 
-import { assert, assertEquals } from "jsr:@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import {
   buildNotificationMessage,
   evaluateRules,

@@ -6,7 +6,7 @@
 //   base44.functions.invoke("linkLineUser", { userId, lineUserId })
 // ============================================================
 
-import { createClientFromRequest } from "npm:@base44/sdk";
+import { createClientFromRequest } from "@base44/sdk";
 import {
   makeBase44Repositories,
   type Base44Client,
@@ -21,17 +21,21 @@ interface Payload {
 
 Deno.serve(async (req) => {
   try {
+    if (req.method !== "POST") return Response.json({ ok: false }, { status: 405 });
+    const b44 = createClientFromRequest(req) as unknown as Base44Client;
+    const actor = await b44.auth.me().catch(() => null);
+    if (!actor?.id) return Response.json({ ok: false }, { status: 401 });
     const body = (await req.json()) as Partial<Payload>;
     const { userId, lineUserId } = body;
 
-    if (!userId || !lineUserId) {
+    if (typeof userId !== "string" || typeof lineUserId !== "string" || !/^U[0-9a-f]{32}$/.test(lineUserId)) {
       return Response.json(
         { ok: false, error: "userId と lineUserId は必須です" },
         { status: 400 },
       );
     }
 
-    const b44 = createClientFromRequest(req) as unknown as Base44Client;
+    if (userId !== actor.id) return Response.json({ ok: false }, { status: 403 });
     const repos = makeBase44Repositories(b44);
 
     const user = await linkLineUser(userId, lineUserId, {
